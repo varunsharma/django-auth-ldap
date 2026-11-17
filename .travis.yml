@@ -1,54 +1,57 @@
-dist: xenial
+dist: focal
 language: python
-cache: pip
+python: "3.8.20"
+cache:
+  pip: true
+  directories:
+    - .ci-replay-cache
+    - $HOME/.cache/ci-pyenv-v2.8.15
 
 addons:
   apt:
     packages:
       - ldap-utils
       - slapd
+      - build-essential
+      - libbz2-dev
+      - libffi-dev
+      - libldap2-dev
+      - liblzma-dev
+      - libncursesw5-dev
+      - libreadline-dev
+      - libsasl2-dev
+      - libsqlite3-dev
+      - libssl-dev
+      - tk-dev
+      - uuid-dev
+      - zlib1g-dev
 
-matrix:
-  fast_finish: true
-  include:
-    - python: 3.7
-      env: TOXENV=black
-    - python: 3.7
-      env: TOXENV=flake8
-    - python: 3.7
-      env: TOXENV=isort
-    - python: 3.7
-      env: TOXENV=docs
-
-    - python: 3.5
-      env: TOXENV=py35-django111
-    - python: 3.6
-      env: TOXENV=py36-django111
-    - python: 3.7
-      env: TOXENV=py37-django111
-    - python: 3.5
-      env: TOXENV=py35-django21
-    - python: 3.6
-      env: TOXENV=py36-django21
-    - python: 3.7
-      env: TOXENV=py37-django21
-    - python: 3.5
-      env: TOXENV=py35-django22
-    - python: 3.6
-      env: TOXENV=py36-django22
-    - python: 3.7
-      env: TOXENV=py37-django22
-    - python: 3.6
-      env: TOXENV=py36-djangomaster
-    - python: 3.7
-      env: TOXENV=py37-djangomaster
-
-  allow_failures:
-    - env: TOXENV=py36-djangomaster
-    - env: TOXENV=py37-djangomaster
+before_install:
+  - |
+    export PYENV_ROOT="$HOME/.cache/ci-pyenv-v2.8.15"
+    mkdir -p "$PYENV_ROOT"
+    git -C "$PYENV_ROOT" init
+    timeout --kill-after=30s 120s git -C "$PYENV_ROOT" fetch --depth=1 \
+      https://github.com/pyenv/pyenv.git \
+      03ffc48ef3cd33808899773df586f3cc7f74470a
+    git -C "$PYENV_ROOT" checkout --detach FETCH_HEAD
+    export PATH="$PATH:$PYENV_ROOT/shims"
+    timeout --kill-after=30s 600s "$PYENV_ROOT/bin/pyenv" install --skip-existing 3.5.10
+    timeout --kill-after=30s 600s "$PYENV_ROOT/bin/pyenv" install --skip-existing 3.6.15
+    timeout --kill-after=30s 600s "$PYENV_ROOT/bin/pyenv" install --skip-existing 3.7.17
+    "$PYENV_ROOT/bin/pyenv" global 3.8.20 3.7.17 3.6.15 3.5.10
+    python3.5 --version
+    python3.6 --version
+    python3.7 --version
+    python3.8 --version
 
 install:
-  - pip install tox
+  - timeout --kill-after=30s 300s pip install tox==3.28.0
 
 script:
-  - tox
+  - |
+    set -e
+    export PYENV_ROOT="$HOME/.cache/ci-pyenv-v2.8.15"
+    export PATH="$PATH:$PYENV_ROOT/shims"
+    timeout --kill-after=30s 300s tox -e ci-replay-tests
+    python ci_tox_matrix.py --timeout 1800 --overall-timeout 2400 $(tox -l)

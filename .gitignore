@@ -9,4 +9,6 @@ MANIFEST
 
 .coverage
 .tox/
+.tox-ci-matrix/
+.tox-ci-matrix-*/
 .ci-replay-cache/
